@@ -8,29 +8,52 @@ import (
 )
 
 var (
-	// ItemsColumns holds the columns for the "items" table.
-	ItemsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+	// DoorsColumns holds the columns for the "doors" table.
+	DoorsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "direction", Type: field.TypeEnum, Enums: []string{"north", "south", "east", "west", "up", "down"}},
+		{Name: "door_from", Type: field.TypeString, Nullable: true},
+		{Name: "door_to", Type: field.TypeString, Nullable: true},
 	}
-	// ItemsTable holds the schema information for the "items" table.
-	ItemsTable = &schema.Table{
-		Name:       "items",
-		Columns:    ItemsColumns,
-		PrimaryKey: []*schema.Column{ItemsColumns[0]},
+	// DoorsTable holds the schema information for the "doors" table.
+	DoorsTable = &schema.Table{
+		Name:       "doors",
+		Columns:    DoorsColumns,
+		PrimaryKey: []*schema.Column{DoorsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "doors_rooms_from",
+				Columns:    []*schema.Column{DoorsColumns[4]},
+				RefColumns: []*schema.Column{RoomsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "doors_rooms_to",
+				Columns:    []*schema.Column{DoorsColumns[5]},
+				RefColumns: []*schema.Column{RoomsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
-	// PlayersColumns holds the columns for the "players" table.
-	PlayersColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+	// EntitiesColumns holds the columns for the "entities" table.
+	EntitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
 	}
-	// PlayersTable holds the schema information for the "players" table.
-	PlayersTable = &schema.Table{
-		Name:       "players",
-		Columns:    PlayersColumns,
-		PrimaryKey: []*schema.Column{PlayersColumns[0]},
+	// EntitiesTable holds the schema information for the "entities" table.
+	EntitiesTable = &schema.Table{
+		Name:       "entities",
+		Columns:    EntitiesColumns,
+		PrimaryKey: []*schema.Column{EntitiesColumns[0]},
 	}
 	// RoomsColumns holds the columns for the "rooms" table.
 	RoomsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
 	}
 	// RoomsTable holds the schema information for the "rooms" table.
 	RoomsTable = &schema.Table{
@@ -40,11 +63,13 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
-		ItemsTable,
-		PlayersTable,
+		DoorsTable,
+		EntitiesTable,
 		RoomsTable,
 	}
 )
 
 func init() {
+	DoorsTable.ForeignKeys[0].RefTable = RoomsTable
+	DoorsTable.ForeignKeys[1].RefTable = RoomsTable
 }

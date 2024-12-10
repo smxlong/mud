@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/smxlong/mud/ent/door"
 	"github.com/smxlong/mud/ent/predicate"
 	"github.com/smxlong/mud/ent/room"
 )
@@ -27,9 +28,115 @@ func (ru *RoomUpdate) Where(ps ...predicate.Room) *RoomUpdate {
 	return ru
 }
 
+// SetName sets the "name" field.
+func (ru *RoomUpdate) SetName(s string) *RoomUpdate {
+	ru.mutation.SetName(s)
+	return ru
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (ru *RoomUpdate) SetNillableName(s *string) *RoomUpdate {
+	if s != nil {
+		ru.SetName(*s)
+	}
+	return ru
+}
+
+// SetDescription sets the "description" field.
+func (ru *RoomUpdate) SetDescription(s string) *RoomUpdate {
+	ru.mutation.SetDescription(s)
+	return ru
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (ru *RoomUpdate) SetNillableDescription(s *string) *RoomUpdate {
+	if s != nil {
+		ru.SetDescription(*s)
+	}
+	return ru
+}
+
+// ClearDescription clears the value of the "description" field.
+func (ru *RoomUpdate) ClearDescription() *RoomUpdate {
+	ru.mutation.ClearDescription()
+	return ru
+}
+
+// AddDoorIDs adds the "doors" edge to the Door entity by IDs.
+func (ru *RoomUpdate) AddDoorIDs(ids ...string) *RoomUpdate {
+	ru.mutation.AddDoorIDs(ids...)
+	return ru
+}
+
+// AddDoors adds the "doors" edges to the Door entity.
+func (ru *RoomUpdate) AddDoors(d ...*Door) *RoomUpdate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ru.AddDoorIDs(ids...)
+}
+
+// AddDoorsInIDs adds the "doors_in" edge to the Door entity by IDs.
+func (ru *RoomUpdate) AddDoorsInIDs(ids ...string) *RoomUpdate {
+	ru.mutation.AddDoorsInIDs(ids...)
+	return ru
+}
+
+// AddDoorsIn adds the "doors_in" edges to the Door entity.
+func (ru *RoomUpdate) AddDoorsIn(d ...*Door) *RoomUpdate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ru.AddDoorsInIDs(ids...)
+}
+
 // Mutation returns the RoomMutation object of the builder.
 func (ru *RoomUpdate) Mutation() *RoomMutation {
 	return ru.mutation
+}
+
+// ClearDoors clears all "doors" edges to the Door entity.
+func (ru *RoomUpdate) ClearDoors() *RoomUpdate {
+	ru.mutation.ClearDoors()
+	return ru
+}
+
+// RemoveDoorIDs removes the "doors" edge to Door entities by IDs.
+func (ru *RoomUpdate) RemoveDoorIDs(ids ...string) *RoomUpdate {
+	ru.mutation.RemoveDoorIDs(ids...)
+	return ru
+}
+
+// RemoveDoors removes "doors" edges to Door entities.
+func (ru *RoomUpdate) RemoveDoors(d ...*Door) *RoomUpdate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ru.RemoveDoorIDs(ids...)
+}
+
+// ClearDoorsIn clears all "doors_in" edges to the Door entity.
+func (ru *RoomUpdate) ClearDoorsIn() *RoomUpdate {
+	ru.mutation.ClearDoorsIn()
+	return ru
+}
+
+// RemoveDoorsInIDs removes the "doors_in" edge to Door entities by IDs.
+func (ru *RoomUpdate) RemoveDoorsInIDs(ids ...string) *RoomUpdate {
+	ru.mutation.RemoveDoorsInIDs(ids...)
+	return ru
+}
+
+// RemoveDoorsIn removes "doors_in" edges to Door entities.
+func (ru *RoomUpdate) RemoveDoorsIn(d ...*Door) *RoomUpdate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ru.RemoveDoorsInIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -59,14 +166,126 @@ func (ru *RoomUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (ru *RoomUpdate) check() error {
+	if v, ok := ru.mutation.Name(); ok {
+		if err := room.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Room.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (ru *RoomUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	_spec := sqlgraph.NewUpdateSpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeInt))
+	if err := ru.check(); err != nil {
+		return n, err
+	}
+	_spec := sqlgraph.NewUpdateSpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeString))
 	if ps := ru.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := ru.mutation.Name(); ok {
+		_spec.SetField(room.FieldName, field.TypeString, value)
+	}
+	if value, ok := ru.mutation.Description(); ok {
+		_spec.SetField(room.FieldDescription, field.TypeString, value)
+	}
+	if ru.mutation.DescriptionCleared() {
+		_spec.ClearField(room.FieldDescription, field.TypeString)
+	}
+	if ru.mutation.DoorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.RemovedDoorsIDs(); len(nodes) > 0 && !ru.mutation.DoorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.DoorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if ru.mutation.DoorsInCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.RemovedDoorsInIDs(); len(nodes) > 0 && !ru.mutation.DoorsInCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.DoorsInIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, ru.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -88,9 +307,115 @@ type RoomUpdateOne struct {
 	mutation *RoomMutation
 }
 
+// SetName sets the "name" field.
+func (ruo *RoomUpdateOne) SetName(s string) *RoomUpdateOne {
+	ruo.mutation.SetName(s)
+	return ruo
+}
+
+// SetNillableName sets the "name" field if the given value is not nil.
+func (ruo *RoomUpdateOne) SetNillableName(s *string) *RoomUpdateOne {
+	if s != nil {
+		ruo.SetName(*s)
+	}
+	return ruo
+}
+
+// SetDescription sets the "description" field.
+func (ruo *RoomUpdateOne) SetDescription(s string) *RoomUpdateOne {
+	ruo.mutation.SetDescription(s)
+	return ruo
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (ruo *RoomUpdateOne) SetNillableDescription(s *string) *RoomUpdateOne {
+	if s != nil {
+		ruo.SetDescription(*s)
+	}
+	return ruo
+}
+
+// ClearDescription clears the value of the "description" field.
+func (ruo *RoomUpdateOne) ClearDescription() *RoomUpdateOne {
+	ruo.mutation.ClearDescription()
+	return ruo
+}
+
+// AddDoorIDs adds the "doors" edge to the Door entity by IDs.
+func (ruo *RoomUpdateOne) AddDoorIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.AddDoorIDs(ids...)
+	return ruo
+}
+
+// AddDoors adds the "doors" edges to the Door entity.
+func (ruo *RoomUpdateOne) AddDoors(d ...*Door) *RoomUpdateOne {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ruo.AddDoorIDs(ids...)
+}
+
+// AddDoorsInIDs adds the "doors_in" edge to the Door entity by IDs.
+func (ruo *RoomUpdateOne) AddDoorsInIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.AddDoorsInIDs(ids...)
+	return ruo
+}
+
+// AddDoorsIn adds the "doors_in" edges to the Door entity.
+func (ruo *RoomUpdateOne) AddDoorsIn(d ...*Door) *RoomUpdateOne {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ruo.AddDoorsInIDs(ids...)
+}
+
 // Mutation returns the RoomMutation object of the builder.
 func (ruo *RoomUpdateOne) Mutation() *RoomMutation {
 	return ruo.mutation
+}
+
+// ClearDoors clears all "doors" edges to the Door entity.
+func (ruo *RoomUpdateOne) ClearDoors() *RoomUpdateOne {
+	ruo.mutation.ClearDoors()
+	return ruo
+}
+
+// RemoveDoorIDs removes the "doors" edge to Door entities by IDs.
+func (ruo *RoomUpdateOne) RemoveDoorIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.RemoveDoorIDs(ids...)
+	return ruo
+}
+
+// RemoveDoors removes "doors" edges to Door entities.
+func (ruo *RoomUpdateOne) RemoveDoors(d ...*Door) *RoomUpdateOne {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ruo.RemoveDoorIDs(ids...)
+}
+
+// ClearDoorsIn clears all "doors_in" edges to the Door entity.
+func (ruo *RoomUpdateOne) ClearDoorsIn() *RoomUpdateOne {
+	ruo.mutation.ClearDoorsIn()
+	return ruo
+}
+
+// RemoveDoorsInIDs removes the "doors_in" edge to Door entities by IDs.
+func (ruo *RoomUpdateOne) RemoveDoorsInIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.RemoveDoorsInIDs(ids...)
+	return ruo
+}
+
+// RemoveDoorsIn removes "doors_in" edges to Door entities.
+func (ruo *RoomUpdateOne) RemoveDoorsIn(d ...*Door) *RoomUpdateOne {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return ruo.RemoveDoorsInIDs(ids...)
 }
 
 // Where appends a list predicates to the RoomUpdate builder.
@@ -133,8 +458,21 @@ func (ruo *RoomUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (ruo *RoomUpdateOne) check() error {
+	if v, ok := ruo.mutation.Name(); ok {
+		if err := room.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Room.name": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (ruo *RoomUpdateOne) sqlSave(ctx context.Context) (_node *Room, err error) {
-	_spec := sqlgraph.NewUpdateSpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeInt))
+	if err := ruo.check(); err != nil {
+		return _node, err
+	}
+	_spec := sqlgraph.NewUpdateSpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeString))
 	id, ok := ruo.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Room.id" for update`)}
@@ -158,6 +496,105 @@ func (ruo *RoomUpdateOne) sqlSave(ctx context.Context) (_node *Room, err error) 
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := ruo.mutation.Name(); ok {
+		_spec.SetField(room.FieldName, field.TypeString, value)
+	}
+	if value, ok := ruo.mutation.Description(); ok {
+		_spec.SetField(room.FieldDescription, field.TypeString, value)
+	}
+	if ruo.mutation.DescriptionCleared() {
+		_spec.ClearField(room.FieldDescription, field.TypeString)
+	}
+	if ruo.mutation.DoorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.RemovedDoorsIDs(); len(nodes) > 0 && !ruo.mutation.DoorsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.DoorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if ruo.mutation.DoorsInCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.RemovedDoorsInIDs(); len(nodes) > 0 && !ruo.mutation.DoorsInCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.DoorsInIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Room{config: ruo.config}
 	_spec.Assign = _node.assignValues

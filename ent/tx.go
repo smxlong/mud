@@ -12,10 +12,10 @@ import (
 // Tx is a transactional client that is created by calling Client.Tx().
 type Tx struct {
 	config
-	// Item is the client for interacting with the Item builders.
-	Item *ItemClient
-	// Player is the client for interacting with the Player builders.
-	Player *PlayerClient
+	// Door is the client for interacting with the Door builders.
+	Door *DoorClient
+	// Entity is the client for interacting with the Entity builders.
+	Entity *EntityClient
 	// Room is the client for interacting with the Room builders.
 	Room *RoomClient
 
@@ -149,8 +149,8 @@ func (tx *Tx) Client() *Client {
 }
 
 func (tx *Tx) init() {
-	tx.Item = NewItemClient(tx.config)
-	tx.Player = NewPlayerClient(tx.config)
+	tx.Door = NewDoorClient(tx.config)
+	tx.Entity = NewEntityClient(tx.config)
 	tx.Room = NewRoomClient(tx.config)
 }
 
@@ -161,7 +161,7 @@ func (tx *Tx) init() {
 // of them in order to commit or rollback the transaction.
 //
 // If a closed transaction is embedded in one of the generated entities, and the entity
-// applies a query, for example: Item.QueryXXX(), the query will be executed
+// applies a query, for example: Door.QueryXXX(), the query will be executed
 // through the driver which created this transaction.
 //
 // Note that txDriver is not goroutine safe.

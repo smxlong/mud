@@ -13,10 +13,46 @@ import (
 
 // Room is the model entity for the Room schema.
 type Room struct {
-	config
+	config `json:"-"`
 	// ID of the ent.
-	ID           int `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
+	// Name holds the value of the "name" field.
+	Name string `json:"name,omitempty"`
+	// Description holds the value of the "description" field.
+	Description string `json:"description,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the RoomQuery when eager-loading is set.
+	Edges        RoomEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// RoomEdges holds the relations/edges for other nodes in the graph.
+type RoomEdges struct {
+	// Doors holds the value of the doors edge.
+	Doors []*Door `json:"doors,omitempty"`
+	// DoorsIn holds the value of the doors_in edge.
+	DoorsIn []*Door `json:"doors_in,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// DoorsOrErr returns the Doors value or an error if the edge
+// was not loaded in eager-loading.
+func (e RoomEdges) DoorsOrErr() ([]*Door, error) {
+	if e.loadedTypes[0] {
+		return e.Doors, nil
+	}
+	return nil, &NotLoadedError{edge: "doors"}
+}
+
+// DoorsInOrErr returns the DoorsIn value or an error if the edge
+// was not loaded in eager-loading.
+func (e RoomEdges) DoorsInOrErr() ([]*Door, error) {
+	if e.loadedTypes[1] {
+		return e.DoorsIn, nil
+	}
+	return nil, &NotLoadedError{edge: "doors_in"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -24,8 +60,8 @@ func (*Room) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case room.FieldID:
-			values[i] = new(sql.NullInt64)
+		case room.FieldID, room.FieldName, room.FieldDescription:
+			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -42,11 +78,23 @@ func (r *Room) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case room.FieldID:
-			value, ok := values[i].(*sql.NullInt64)
-			if !ok {
-				return fmt.Errorf("unexpected type %T for field id", value)
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field id", values[i])
+			} else if value.Valid {
+				r.ID = value.String
 			}
-			r.ID = int(value.Int64)
+		case room.FieldName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field name", values[i])
+			} else if value.Valid {
+				r.Name = value.String
+			}
+		case room.FieldDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description", values[i])
+			} else if value.Valid {
+				r.Description = value.String
+			}
 		default:
 			r.selectValues.Set(columns[i], values[i])
 		}
@@ -58,6 +106,16 @@ func (r *Room) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (r *Room) Value(name string) (ent.Value, error) {
 	return r.selectValues.Get(name)
+}
+
+// QueryDoors queries the "doors" edge of the Room entity.
+func (r *Room) QueryDoors() *DoorQuery {
+	return NewRoomClient(r.config).QueryDoors(r)
+}
+
+// QueryDoorsIn queries the "doors_in" edge of the Room entity.
+func (r *Room) QueryDoorsIn() *DoorQuery {
+	return NewRoomClient(r.config).QueryDoorsIn(r)
 }
 
 // Update returns a builder for updating this Room.
@@ -82,7 +140,12 @@ func (r *Room) Unwrap() *Room {
 func (r *Room) String() string {
 	var builder strings.Builder
 	builder.WriteString("Room(")
-	builder.WriteString(fmt.Sprintf("id=%v", r.ID))
+	builder.WriteString(fmt.Sprintf("id=%v, ", r.ID))
+	builder.WriteString("name=")
+	builder.WriteString(r.Name)
+	builder.WriteString(", ")
+	builder.WriteString("description=")
+	builder.WriteString(r.Description)
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/smxlong/mud/ent/door"
 	"github.com/smxlong/mud/ent/predicate"
 	"github.com/smxlong/mud/ent/room"
 )
@@ -18,10 +20,12 @@ import (
 // RoomQuery is the builder for querying Room entities.
 type RoomQuery struct {
 	config
-	ctx        *QueryContext
-	order      []room.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Room
+	ctx         *QueryContext
+	order       []room.OrderOption
+	inters      []Interceptor
+	predicates  []predicate.Room
+	withDoors   *DoorQuery
+	withDoorsIn *DoorQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +62,50 @@ func (rq *RoomQuery) Order(o ...room.OrderOption) *RoomQuery {
 	return rq
 }
 
+// QueryDoors chains the current query on the "doors" edge.
+func (rq *RoomQuery) QueryDoors() *DoorQuery {
+	query := (&DoorClient{config: rq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := rq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := rq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(room.Table, room.FieldID, selector),
+			sqlgraph.To(door.Table, door.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, room.DoorsTable, room.DoorsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDoorsIn chains the current query on the "doors_in" edge.
+func (rq *RoomQuery) QueryDoorsIn() *DoorQuery {
+	query := (&DoorClient{config: rq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := rq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := rq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(room.Table, room.FieldID, selector),
+			sqlgraph.To(door.Table, door.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, room.DoorsInTable, room.DoorsInColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Room entity from the query.
 // Returns a *NotFoundError when no Room was found.
 func (rq *RoomQuery) First(ctx context.Context) (*Room, error) {
@@ -82,8 +130,8 @@ func (rq *RoomQuery) FirstX(ctx context.Context) *Room {
 
 // FirstID returns the first Room ID from the query.
 // Returns a *NotFoundError when no Room ID was found.
-func (rq *RoomQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (rq *RoomQuery) FirstID(ctx context.Context) (id string, err error) {
+	var ids []string
 	if ids, err = rq.Limit(1).IDs(setContextOp(ctx, rq.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
@@ -95,7 +143,7 @@ func (rq *RoomQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (rq *RoomQuery) FirstIDX(ctx context.Context) int {
+func (rq *RoomQuery) FirstIDX(ctx context.Context) string {
 	id, err := rq.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -133,8 +181,8 @@ func (rq *RoomQuery) OnlyX(ctx context.Context) *Room {
 // OnlyID is like Only, but returns the only Room ID in the query.
 // Returns a *NotSingularError when more than one Room ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (rq *RoomQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (rq *RoomQuery) OnlyID(ctx context.Context) (id string, err error) {
+	var ids []string
 	if ids, err = rq.Limit(2).IDs(setContextOp(ctx, rq.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
 	}
@@ -150,7 +198,7 @@ func (rq *RoomQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (rq *RoomQuery) OnlyIDX(ctx context.Context) int {
+func (rq *RoomQuery) OnlyIDX(ctx context.Context) string {
 	id, err := rq.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -178,7 +226,7 @@ func (rq *RoomQuery) AllX(ctx context.Context) []*Room {
 }
 
 // IDs executes the query and returns a list of Room IDs.
-func (rq *RoomQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (rq *RoomQuery) IDs(ctx context.Context) (ids []string, err error) {
 	if rq.ctx.Unique == nil && rq.path != nil {
 		rq.Unique(true)
 	}
@@ -190,7 +238,7 @@ func (rq *RoomQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (rq *RoomQuery) IDsX(ctx context.Context) []int {
+func (rq *RoomQuery) IDsX(ctx context.Context) []string {
 	ids, err := rq.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -245,19 +293,55 @@ func (rq *RoomQuery) Clone() *RoomQuery {
 		return nil
 	}
 	return &RoomQuery{
-		config:     rq.config,
-		ctx:        rq.ctx.Clone(),
-		order:      append([]room.OrderOption{}, rq.order...),
-		inters:     append([]Interceptor{}, rq.inters...),
-		predicates: append([]predicate.Room{}, rq.predicates...),
+		config:      rq.config,
+		ctx:         rq.ctx.Clone(),
+		order:       append([]room.OrderOption{}, rq.order...),
+		inters:      append([]Interceptor{}, rq.inters...),
+		predicates:  append([]predicate.Room{}, rq.predicates...),
+		withDoors:   rq.withDoors.Clone(),
+		withDoorsIn: rq.withDoorsIn.Clone(),
 		// clone intermediate query.
 		sql:  rq.sql.Clone(),
 		path: rq.path,
 	}
 }
 
+// WithDoors tells the query-builder to eager-load the nodes that are connected to
+// the "doors" edge. The optional arguments are used to configure the query builder of the edge.
+func (rq *RoomQuery) WithDoors(opts ...func(*DoorQuery)) *RoomQuery {
+	query := (&DoorClient{config: rq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	rq.withDoors = query
+	return rq
+}
+
+// WithDoorsIn tells the query-builder to eager-load the nodes that are connected to
+// the "doors_in" edge. The optional arguments are used to configure the query builder of the edge.
+func (rq *RoomQuery) WithDoorsIn(opts ...func(*DoorQuery)) *RoomQuery {
+	query := (&DoorClient{config: rq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	rq.withDoorsIn = query
+	return rq
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
+//
+// Example:
+//
+//	var v []struct {
+//		Name string `json:"name,omitempty"`
+//		Count int `json:"count,omitempty"`
+//	}
+//
+//	client.Room.Query().
+//		GroupBy(room.FieldName).
+//		Aggregate(ent.Count()).
+//		Scan(ctx, &v)
 func (rq *RoomQuery) GroupBy(field string, fields ...string) *RoomGroupBy {
 	rq.ctx.Fields = append([]string{field}, fields...)
 	grbuild := &RoomGroupBy{build: rq}
@@ -269,6 +353,16 @@ func (rq *RoomQuery) GroupBy(field string, fields ...string) *RoomGroupBy {
 
 // Select allows the selection one or more fields/columns for the given query,
 // instead of selecting all fields in the entity.
+//
+// Example:
+//
+//	var v []struct {
+//		Name string `json:"name,omitempty"`
+//	}
+//
+//	client.Room.Query().
+//		Select(room.FieldName).
+//		Scan(ctx, &v)
 func (rq *RoomQuery) Select(fields ...string) *RoomSelect {
 	rq.ctx.Fields = append(rq.ctx.Fields, fields...)
 	sbuild := &RoomSelect{RoomQuery: rq}
@@ -310,8 +404,12 @@ func (rq *RoomQuery) prepareQuery(ctx context.Context) error {
 
 func (rq *RoomQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Room, error) {
 	var (
-		nodes = []*Room{}
-		_spec = rq.querySpec()
+		nodes       = []*Room{}
+		_spec       = rq.querySpec()
+		loadedTypes = [2]bool{
+			rq.withDoors != nil,
+			rq.withDoorsIn != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Room).scanValues(nil, columns)
@@ -319,6 +417,7 @@ func (rq *RoomQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Room, e
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Room{config: rq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -330,7 +429,84 @@ func (rq *RoomQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Room, e
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := rq.withDoors; query != nil {
+		if err := rq.loadDoors(ctx, query, nodes,
+			func(n *Room) { n.Edges.Doors = []*Door{} },
+			func(n *Room, e *Door) { n.Edges.Doors = append(n.Edges.Doors, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := rq.withDoorsIn; query != nil {
+		if err := rq.loadDoorsIn(ctx, query, nodes,
+			func(n *Room) { n.Edges.DoorsIn = []*Door{} },
+			func(n *Room, e *Door) { n.Edges.DoorsIn = append(n.Edges.DoorsIn, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (rq *RoomQuery) loadDoors(ctx context.Context, query *DoorQuery, nodes []*Room, init func(*Room), assign func(*Room, *Door)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Room)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Door(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(room.DoorsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.door_from
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "door_from" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "door_from" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (rq *RoomQuery) loadDoorsIn(ctx context.Context, query *DoorQuery, nodes []*Room, init func(*Room), assign func(*Room, *Door)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Room)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Door(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(room.DoorsInColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.door_to
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "door_to" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "door_to" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (rq *RoomQuery) sqlCount(ctx context.Context) (int, error) {
@@ -343,7 +519,7 @@ func (rq *RoomQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (rq *RoomQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(room.Table, room.Columns, sqlgraph.NewFieldSpec(room.FieldID, field.TypeString))
 	_spec.From = rq.sql
 	if unique := rq.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

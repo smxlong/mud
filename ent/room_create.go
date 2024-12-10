@@ -4,10 +4,12 @@ package ent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/smxlong/mud/ent/door"
 	"github.com/smxlong/mud/ent/room"
 )
 
@@ -18,6 +20,70 @@ type RoomCreate struct {
 	hooks    []Hook
 }
 
+// SetName sets the "name" field.
+func (rc *RoomCreate) SetName(s string) *RoomCreate {
+	rc.mutation.SetName(s)
+	return rc
+}
+
+// SetDescription sets the "description" field.
+func (rc *RoomCreate) SetDescription(s string) *RoomCreate {
+	rc.mutation.SetDescription(s)
+	return rc
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (rc *RoomCreate) SetNillableDescription(s *string) *RoomCreate {
+	if s != nil {
+		rc.SetDescription(*s)
+	}
+	return rc
+}
+
+// SetID sets the "id" field.
+func (rc *RoomCreate) SetID(s string) *RoomCreate {
+	rc.mutation.SetID(s)
+	return rc
+}
+
+// SetNillableID sets the "id" field if the given value is not nil.
+func (rc *RoomCreate) SetNillableID(s *string) *RoomCreate {
+	if s != nil {
+		rc.SetID(*s)
+	}
+	return rc
+}
+
+// AddDoorIDs adds the "doors" edge to the Door entity by IDs.
+func (rc *RoomCreate) AddDoorIDs(ids ...string) *RoomCreate {
+	rc.mutation.AddDoorIDs(ids...)
+	return rc
+}
+
+// AddDoors adds the "doors" edges to the Door entity.
+func (rc *RoomCreate) AddDoors(d ...*Door) *RoomCreate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return rc.AddDoorIDs(ids...)
+}
+
+// AddDoorsInIDs adds the "doors_in" edge to the Door entity by IDs.
+func (rc *RoomCreate) AddDoorsInIDs(ids ...string) *RoomCreate {
+	rc.mutation.AddDoorsInIDs(ids...)
+	return rc
+}
+
+// AddDoorsIn adds the "doors_in" edges to the Door entity.
+func (rc *RoomCreate) AddDoorsIn(d ...*Door) *RoomCreate {
+	ids := make([]string, len(d))
+	for i := range d {
+		ids[i] = d[i].ID
+	}
+	return rc.AddDoorsInIDs(ids...)
+}
+
 // Mutation returns the RoomMutation object of the builder.
 func (rc *RoomCreate) Mutation() *RoomMutation {
 	return rc.mutation
@@ -25,6 +91,7 @@ func (rc *RoomCreate) Mutation() *RoomMutation {
 
 // Save creates the Room in the database.
 func (rc *RoomCreate) Save(ctx context.Context) (*Room, error) {
+	rc.defaults()
 	return withHooks(ctx, rc.sqlSave, rc.mutation, rc.hooks)
 }
 
@@ -50,8 +117,24 @@ func (rc *RoomCreate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (rc *RoomCreate) defaults() {
+	if _, ok := rc.mutation.ID(); !ok {
+		v := room.DefaultID()
+		rc.mutation.SetID(v)
+	}
+}
+
 // check runs all checks and user-defined validators on the builder.
 func (rc *RoomCreate) check() error {
+	if _, ok := rc.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Room.name"`)}
+	}
+	if v, ok := rc.mutation.Name(); ok {
+		if err := room.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Room.name": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -66,8 +149,13 @@ func (rc *RoomCreate) sqlSave(ctx context.Context) (*Room, error) {
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	if _spec.ID.Value != nil {
+		if id, ok := _spec.ID.Value.(string); ok {
+			_node.ID = id
+		} else {
+			return nil, fmt.Errorf("unexpected Room.ID type: %T", _spec.ID.Value)
+		}
+	}
 	rc.mutation.id = &_node.ID
 	rc.mutation.done = true
 	return _node, nil
@@ -76,8 +164,52 @@ func (rc *RoomCreate) sqlSave(ctx context.Context) (*Room, error) {
 func (rc *RoomCreate) createSpec() (*Room, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Room{config: rc.config}
-		_spec = sqlgraph.NewCreateSpec(room.Table, sqlgraph.NewFieldSpec(room.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(room.Table, sqlgraph.NewFieldSpec(room.FieldID, field.TypeString))
 	)
+	if id, ok := rc.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = id
+	}
+	if value, ok := rc.mutation.Name(); ok {
+		_spec.SetField(room.FieldName, field.TypeString, value)
+		_node.Name = value
+	}
+	if value, ok := rc.mutation.Description(); ok {
+		_spec.SetField(room.FieldDescription, field.TypeString, value)
+		_node.Description = value
+	}
+	if nodes := rc.mutation.DoorsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsTable,
+			Columns: []string{room.DoorsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := rc.mutation.DoorsInIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   room.DoorsInTable,
+			Columns: []string{room.DoorsInColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
@@ -99,6 +231,7 @@ func (rcb *RoomCreateBulk) Save(ctx context.Context) ([]*Room, error) {
 	for i := range rcb.builders {
 		func(i int, root context.Context) {
 			builder := rcb.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*RoomMutation)
 				if !ok {
@@ -125,10 +258,6 @@ func (rcb *RoomCreateBulk) Save(ctx context.Context) ([]*Room, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
 				mutation.done = true
 				return nodes[i], nil
 			})

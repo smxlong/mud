@@ -6,11 +6,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
-// Item is the predicate function for item builders.
-type Item func(*sql.Selector)
+// Door is the predicate function for door builders.
+type Door func(*sql.Selector)
 
-// Player is the predicate function for player builders.
-type Player func(*sql.Selector)
+// Entity is the predicate function for entity builders.
+type Entity func(*sql.Selector)
 
 // Room is the predicate function for room builders.
 type Room func(*sql.Selector)

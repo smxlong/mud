@@ -9,28 +9,28 @@ import (
 	"github.com/smxlong/mud/ent"
 )
 
-// The ItemFunc type is an adapter to allow the use of ordinary
-// function as Item mutator.
-type ItemFunc func(context.Context, *ent.ItemMutation) (ent.Value, error)
+// The DoorFunc type is an adapter to allow the use of ordinary
+// function as Door mutator.
+type DoorFunc func(context.Context, *ent.DoorMutation) (ent.Value, error)
 
 // Mutate calls f(ctx, m).
-func (f ItemFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.ItemMutation); ok {
+func (f DoorFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DoorMutation); ok {
 		return f(ctx, mv)
 	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ItemMutation", m)
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DoorMutation", m)
 }
 
-// The PlayerFunc type is an adapter to allow the use of ordinary
-// function as Player mutator.
-type PlayerFunc func(context.Context, *ent.PlayerMutation) (ent.Value, error)
+// The EntityFunc type is an adapter to allow the use of ordinary
+// function as Entity mutator.
+type EntityFunc func(context.Context, *ent.EntityMutation) (ent.Value, error)
 
 // Mutate calls f(ctx, m).
-func (f PlayerFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.PlayerMutation); ok {
+func (f EntityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EntityMutation); ok {
 		return f(ctx, mv)
 	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PlayerMutation", m)
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EntityMutation", m)
 }
 
 // The RoomFunc type is an adapter to allow the use of ordinary

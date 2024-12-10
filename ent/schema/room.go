@@ -1,6 +1,9 @@
 package schema
 
-import "entgo.io/ent"
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
+)
 
 // Room holds the schema definition for the Room entity.
 type Room struct {
@@ -14,5 +17,17 @@ func (Room) Fields() []ent.Field {
 
 // Edges of the Room.
 func (Room) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.From("doors", Door.Type).
+			Ref("from"),
+		edge.From("doors_in", Door.Type).
+			Ref("to"),
+	}
+}
+
+// Mixin of the Room.
+func (Room) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		Entity{},
+	}
 }

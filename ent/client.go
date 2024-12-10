@@ -14,8 +14,9 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
-	"github.com/smxlong/mud/ent/item"
-	"github.com/smxlong/mud/ent/player"
+	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/smxlong/mud/ent/door"
+	"github.com/smxlong/mud/ent/entity"
 	"github.com/smxlong/mud/ent/room"
 )
 
@@ -24,10 +25,10 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
-	// Item is the client for interacting with the Item builders.
-	Item *ItemClient
-	// Player is the client for interacting with the Player builders.
-	Player *PlayerClient
+	// Door is the client for interacting with the Door builders.
+	Door *DoorClient
+	// Entity is the client for interacting with the Entity builders.
+	Entity *EntityClient
 	// Room is the client for interacting with the Room builders.
 	Room *RoomClient
 }
@@ -41,8 +42,8 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
-	c.Item = NewItemClient(c.config)
-	c.Player = NewPlayerClient(c.config)
+	c.Door = NewDoorClient(c.config)
+	c.Entity = NewEntityClient(c.config)
 	c.Room = NewRoomClient(c.config)
 }
 
@@ -136,8 +137,8 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:    ctx,
 		config: cfg,
-		Item:   NewItemClient(cfg),
-		Player: NewPlayerClient(cfg),
+		Door:   NewDoorClient(cfg),
+		Entity: NewEntityClient(cfg),
 		Room:   NewRoomClient(cfg),
 	}, nil
 }
@@ -158,8 +159,8 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:    ctx,
 		config: cfg,
-		Item:   NewItemClient(cfg),
-		Player: NewPlayerClient(cfg),
+		Door:   NewDoorClient(cfg),
+		Entity: NewEntityClient(cfg),
 		Room:   NewRoomClient(cfg),
 	}, nil
 }
@@ -167,7 +168,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Item.
+//		Door.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -189,26 +190,26 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
-	c.Item.Use(hooks...)
-	c.Player.Use(hooks...)
+	c.Door.Use(hooks...)
+	c.Entity.Use(hooks...)
 	c.Room.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
-	c.Item.Intercept(interceptors...)
-	c.Player.Intercept(interceptors...)
+	c.Door.Intercept(interceptors...)
+	c.Entity.Intercept(interceptors...)
 	c.Room.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
-	case *ItemMutation:
-		return c.Item.mutate(ctx, m)
-	case *PlayerMutation:
-		return c.Player.mutate(ctx, m)
+	case *DoorMutation:
+		return c.Door.mutate(ctx, m)
+	case *EntityMutation:
+		return c.Entity.mutate(ctx, m)
 	case *RoomMutation:
 		return c.Room.mutate(ctx, m)
 	default:
@@ -216,107 +217,272 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	}
 }
 
-// ItemClient is a client for the Item schema.
-type ItemClient struct {
+// DoorClient is a client for the Door schema.
+type DoorClient struct {
 	config
 }
 
-// NewItemClient returns a client for the Item from the given config.
-func NewItemClient(c config) *ItemClient {
-	return &ItemClient{config: c}
+// NewDoorClient returns a client for the Door from the given config.
+func NewDoorClient(c config) *DoorClient {
+	return &DoorClient{config: c}
 }
 
 // Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `item.Hooks(f(g(h())))`.
-func (c *ItemClient) Use(hooks ...Hook) {
-	c.hooks.Item = append(c.hooks.Item, hooks...)
+// A call to `Use(f, g, h)` equals to `door.Hooks(f(g(h())))`.
+func (c *DoorClient) Use(hooks ...Hook) {
+	c.hooks.Door = append(c.hooks.Door, hooks...)
 }
 
 // Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `item.Intercept(f(g(h())))`.
-func (c *ItemClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Item = append(c.inters.Item, interceptors...)
+// A call to `Intercept(f, g, h)` equals to `door.Intercept(f(g(h())))`.
+func (c *DoorClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Door = append(c.inters.Door, interceptors...)
 }
 
-// Create returns a builder for creating a Item entity.
-func (c *ItemClient) Create() *ItemCreate {
-	mutation := newItemMutation(c.config, OpCreate)
-	return &ItemCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Create returns a builder for creating a Door entity.
+func (c *DoorClient) Create() *DoorCreate {
+	mutation := newDoorMutation(c.config, OpCreate)
+	return &DoorCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// CreateBulk returns a builder for creating a bulk of Item entities.
-func (c *ItemClient) CreateBulk(builders ...*ItemCreate) *ItemCreateBulk {
-	return &ItemCreateBulk{config: c.config, builders: builders}
+// CreateBulk returns a builder for creating a bulk of Door entities.
+func (c *DoorClient) CreateBulk(builders ...*DoorCreate) *DoorCreateBulk {
+	return &DoorCreateBulk{config: c.config, builders: builders}
 }
 
 // MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
 // a builder and applies setFunc on it.
-func (c *ItemClient) MapCreateBulk(slice any, setFunc func(*ItemCreate, int)) *ItemCreateBulk {
+func (c *DoorClient) MapCreateBulk(slice any, setFunc func(*DoorCreate, int)) *DoorCreateBulk {
 	rv := reflect.ValueOf(slice)
 	if rv.Kind() != reflect.Slice {
-		return &ItemCreateBulk{err: fmt.Errorf("calling to ItemClient.MapCreateBulk with wrong type %T, need slice", slice)}
+		return &DoorCreateBulk{err: fmt.Errorf("calling to DoorClient.MapCreateBulk with wrong type %T, need slice", slice)}
 	}
-	builders := make([]*ItemCreate, rv.Len())
+	builders := make([]*DoorCreate, rv.Len())
 	for i := 0; i < rv.Len(); i++ {
 		builders[i] = c.Create()
 		setFunc(builders[i], i)
 	}
-	return &ItemCreateBulk{config: c.config, builders: builders}
+	return &DoorCreateBulk{config: c.config, builders: builders}
 }
 
-// Update returns an update builder for Item.
-func (c *ItemClient) Update() *ItemUpdate {
-	mutation := newItemMutation(c.config, OpUpdate)
-	return &ItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Update returns an update builder for Door.
+func (c *DoorClient) Update() *DoorUpdate {
+	mutation := newDoorMutation(c.config, OpUpdate)
+	return &DoorUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOne returns an update builder for the given entity.
-func (c *ItemClient) UpdateOne(i *Item) *ItemUpdateOne {
-	mutation := newItemMutation(c.config, OpUpdateOne, withItem(i))
-	return &ItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *DoorClient) UpdateOne(d *Door) *DoorUpdateOne {
+	mutation := newDoorMutation(c.config, OpUpdateOne, withDoor(d))
+	return &DoorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *ItemClient) UpdateOneID(id int) *ItemUpdateOne {
-	mutation := newItemMutation(c.config, OpUpdateOne, withItemID(id))
-	return &ItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+func (c *DoorClient) UpdateOneID(id string) *DoorUpdateOne {
+	mutation := newDoorMutation(c.config, OpUpdateOne, withDoorID(id))
+	return &DoorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
-// Delete returns a delete builder for Item.
-func (c *ItemClient) Delete() *ItemDelete {
-	mutation := newItemMutation(c.config, OpDelete)
-	return &ItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+// Delete returns a delete builder for Door.
+func (c *DoorClient) Delete() *DoorDelete {
+	mutation := newDoorMutation(c.config, OpDelete)
+	return &DoorDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
 
 // DeleteOne returns a builder for deleting the given entity.
-func (c *ItemClient) DeleteOne(i *Item) *ItemDeleteOne {
-	return c.DeleteOneID(i.ID)
+func (c *DoorClient) DeleteOne(d *Door) *DoorDeleteOne {
+	return c.DeleteOneID(d.ID)
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *ItemClient) DeleteOneID(id int) *ItemDeleteOne {
-	builder := c.Delete().Where(item.ID(id))
+func (c *DoorClient) DeleteOneID(id string) *DoorDeleteOne {
+	builder := c.Delete().Where(door.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
-	return &ItemDeleteOne{builder}
+	return &DoorDeleteOne{builder}
 }
 
-// Query returns a query builder for Item.
-func (c *ItemClient) Query() *ItemQuery {
-	return &ItemQuery{
+// Query returns a query builder for Door.
+func (c *DoorClient) Query() *DoorQuery {
+	return &DoorQuery{
 		config: c.config,
-		ctx:    &QueryContext{Type: TypeItem},
+		ctx:    &QueryContext{Type: TypeDoor},
 		inters: c.Interceptors(),
 	}
 }
 
-// Get returns a Item entity by its id.
-func (c *ItemClient) Get(ctx context.Context, id int) (*Item, error) {
-	return c.Query().Where(item.ID(id)).Only(ctx)
+// Get returns a Door entity by its id.
+func (c *DoorClient) Get(ctx context.Context, id string) (*Door, error) {
+	return c.Query().Where(door.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *ItemClient) GetX(ctx context.Context, id int) *Item {
+func (c *DoorClient) GetX(ctx context.Context, id string) *Door {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryFrom queries the from edge of a Door.
+func (c *DoorClient) QueryFrom(d *Door) *RoomQuery {
+	query := (&RoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := d.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(door.Table, door.FieldID, id),
+			sqlgraph.To(room.Table, room.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, door.FromTable, door.FromColumn),
+		)
+		fromV = sqlgraph.Neighbors(d.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTo queries the to edge of a Door.
+func (c *DoorClient) QueryTo(d *Door) *RoomQuery {
+	query := (&RoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := d.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(door.Table, door.FieldID, id),
+			sqlgraph.To(room.Table, room.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, door.ToTable, door.ToColumn),
+		)
+		fromV = sqlgraph.Neighbors(d.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DoorClient) Hooks() []Hook {
+	return c.hooks.Door
+}
+
+// Interceptors returns the client interceptors.
+func (c *DoorClient) Interceptors() []Interceptor {
+	return c.inters.Door
+}
+
+func (c *DoorClient) mutate(ctx context.Context, m *DoorMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DoorCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DoorUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DoorUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DoorDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Door mutation op: %q", m.Op())
+	}
+}
+
+// EntityClient is a client for the Entity schema.
+type EntityClient struct {
+	config
+}
+
+// NewEntityClient returns a client for the Entity from the given config.
+func NewEntityClient(c config) *EntityClient {
+	return &EntityClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `entity.Hooks(f(g(h())))`.
+func (c *EntityClient) Use(hooks ...Hook) {
+	c.hooks.Entity = append(c.hooks.Entity, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `entity.Intercept(f(g(h())))`.
+func (c *EntityClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Entity = append(c.inters.Entity, interceptors...)
+}
+
+// Create returns a builder for creating a Entity entity.
+func (c *EntityClient) Create() *EntityCreate {
+	mutation := newEntityMutation(c.config, OpCreate)
+	return &EntityCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Entity entities.
+func (c *EntityClient) CreateBulk(builders ...*EntityCreate) *EntityCreateBulk {
+	return &EntityCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EntityClient) MapCreateBulk(slice any, setFunc func(*EntityCreate, int)) *EntityCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EntityCreateBulk{err: fmt.Errorf("calling to EntityClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EntityCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EntityCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Entity.
+func (c *EntityClient) Update() *EntityUpdate {
+	mutation := newEntityMutation(c.config, OpUpdate)
+	return &EntityUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EntityClient) UpdateOne(e *Entity) *EntityUpdateOne {
+	mutation := newEntityMutation(c.config, OpUpdateOne, withEntity(e))
+	return &EntityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EntityClient) UpdateOneID(id string) *EntityUpdateOne {
+	mutation := newEntityMutation(c.config, OpUpdateOne, withEntityID(id))
+	return &EntityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Entity.
+func (c *EntityClient) Delete() *EntityDelete {
+	mutation := newEntityMutation(c.config, OpDelete)
+	return &EntityDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EntityClient) DeleteOne(e *Entity) *EntityDeleteOne {
+	return c.DeleteOneID(e.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EntityClient) DeleteOneID(id string) *EntityDeleteOne {
+	builder := c.Delete().Where(entity.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EntityDeleteOne{builder}
+}
+
+// Query returns a query builder for Entity.
+func (c *EntityClient) Query() *EntityQuery {
+	return &EntityQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEntity},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Entity entity by its id.
+func (c *EntityClient) Get(ctx context.Context, id string) (*Entity, error) {
+	return c.Query().Where(entity.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EntityClient) GetX(ctx context.Context, id string) *Entity {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -325,160 +491,27 @@ func (c *ItemClient) GetX(ctx context.Context, id int) *Item {
 }
 
 // Hooks returns the client hooks.
-func (c *ItemClient) Hooks() []Hook {
-	return c.hooks.Item
+func (c *EntityClient) Hooks() []Hook {
+	return c.hooks.Entity
 }
 
 // Interceptors returns the client interceptors.
-func (c *ItemClient) Interceptors() []Interceptor {
-	return c.inters.Item
+func (c *EntityClient) Interceptors() []Interceptor {
+	return c.inters.Entity
 }
 
-func (c *ItemClient) mutate(ctx context.Context, m *ItemMutation) (Value, error) {
+func (c *EntityClient) mutate(ctx context.Context, m *EntityMutation) (Value, error) {
 	switch m.Op() {
 	case OpCreate:
-		return (&ItemCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&EntityCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdate:
-		return (&ItemUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&EntityUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpUpdateOne:
-		return (&ItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+		return (&EntityUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
 	case OpDelete, OpDeleteOne:
-		return (&ItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+		return (&EntityDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
-		return nil, fmt.Errorf("ent: unknown Item mutation op: %q", m.Op())
-	}
-}
-
-// PlayerClient is a client for the Player schema.
-type PlayerClient struct {
-	config
-}
-
-// NewPlayerClient returns a client for the Player from the given config.
-func NewPlayerClient(c config) *PlayerClient {
-	return &PlayerClient{config: c}
-}
-
-// Use adds a list of mutation hooks to the hooks stack.
-// A call to `Use(f, g, h)` equals to `player.Hooks(f(g(h())))`.
-func (c *PlayerClient) Use(hooks ...Hook) {
-	c.hooks.Player = append(c.hooks.Player, hooks...)
-}
-
-// Intercept adds a list of query interceptors to the interceptors stack.
-// A call to `Intercept(f, g, h)` equals to `player.Intercept(f(g(h())))`.
-func (c *PlayerClient) Intercept(interceptors ...Interceptor) {
-	c.inters.Player = append(c.inters.Player, interceptors...)
-}
-
-// Create returns a builder for creating a Player entity.
-func (c *PlayerClient) Create() *PlayerCreate {
-	mutation := newPlayerMutation(c.config, OpCreate)
-	return &PlayerCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// CreateBulk returns a builder for creating a bulk of Player entities.
-func (c *PlayerClient) CreateBulk(builders ...*PlayerCreate) *PlayerCreateBulk {
-	return &PlayerCreateBulk{config: c.config, builders: builders}
-}
-
-// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
-// a builder and applies setFunc on it.
-func (c *PlayerClient) MapCreateBulk(slice any, setFunc func(*PlayerCreate, int)) *PlayerCreateBulk {
-	rv := reflect.ValueOf(slice)
-	if rv.Kind() != reflect.Slice {
-		return &PlayerCreateBulk{err: fmt.Errorf("calling to PlayerClient.MapCreateBulk with wrong type %T, need slice", slice)}
-	}
-	builders := make([]*PlayerCreate, rv.Len())
-	for i := 0; i < rv.Len(); i++ {
-		builders[i] = c.Create()
-		setFunc(builders[i], i)
-	}
-	return &PlayerCreateBulk{config: c.config, builders: builders}
-}
-
-// Update returns an update builder for Player.
-func (c *PlayerClient) Update() *PlayerUpdate {
-	mutation := newPlayerMutation(c.config, OpUpdate)
-	return &PlayerUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOne returns an update builder for the given entity.
-func (c *PlayerClient) UpdateOne(pl *Player) *PlayerUpdateOne {
-	mutation := newPlayerMutation(c.config, OpUpdateOne, withPlayer(pl))
-	return &PlayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// UpdateOneID returns an update builder for the given id.
-func (c *PlayerClient) UpdateOneID(id int) *PlayerUpdateOne {
-	mutation := newPlayerMutation(c.config, OpUpdateOne, withPlayerID(id))
-	return &PlayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// Delete returns a delete builder for Player.
-func (c *PlayerClient) Delete() *PlayerDelete {
-	mutation := newPlayerMutation(c.config, OpDelete)
-	return &PlayerDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
-}
-
-// DeleteOne returns a builder for deleting the given entity.
-func (c *PlayerClient) DeleteOne(pl *Player) *PlayerDeleteOne {
-	return c.DeleteOneID(pl.ID)
-}
-
-// DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *PlayerClient) DeleteOneID(id int) *PlayerDeleteOne {
-	builder := c.Delete().Where(player.ID(id))
-	builder.mutation.id = &id
-	builder.mutation.op = OpDeleteOne
-	return &PlayerDeleteOne{builder}
-}
-
-// Query returns a query builder for Player.
-func (c *PlayerClient) Query() *PlayerQuery {
-	return &PlayerQuery{
-		config: c.config,
-		ctx:    &QueryContext{Type: TypePlayer},
-		inters: c.Interceptors(),
-	}
-}
-
-// Get returns a Player entity by its id.
-func (c *PlayerClient) Get(ctx context.Context, id int) (*Player, error) {
-	return c.Query().Where(player.ID(id)).Only(ctx)
-}
-
-// GetX is like Get, but panics if an error occurs.
-func (c *PlayerClient) GetX(ctx context.Context, id int) *Player {
-	obj, err := c.Get(ctx, id)
-	if err != nil {
-		panic(err)
-	}
-	return obj
-}
-
-// Hooks returns the client hooks.
-func (c *PlayerClient) Hooks() []Hook {
-	return c.hooks.Player
-}
-
-// Interceptors returns the client interceptors.
-func (c *PlayerClient) Interceptors() []Interceptor {
-	return c.inters.Player
-}
-
-func (c *PlayerClient) mutate(ctx context.Context, m *PlayerMutation) (Value, error) {
-	switch m.Op() {
-	case OpCreate:
-		return (&PlayerCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdate:
-		return (&PlayerUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpUpdateOne:
-		return (&PlayerUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
-	case OpDelete, OpDeleteOne:
-		return (&PlayerDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
-	default:
-		return nil, fmt.Errorf("ent: unknown Player mutation op: %q", m.Op())
+		return nil, fmt.Errorf("ent: unknown Entity mutation op: %q", m.Op())
 	}
 }
 
@@ -543,7 +576,7 @@ func (c *RoomClient) UpdateOne(r *Room) *RoomUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *RoomClient) UpdateOneID(id int) *RoomUpdateOne {
+func (c *RoomClient) UpdateOneID(id string) *RoomUpdateOne {
 	mutation := newRoomMutation(c.config, OpUpdateOne, withRoomID(id))
 	return &RoomUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -560,7 +593,7 @@ func (c *RoomClient) DeleteOne(r *Room) *RoomDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *RoomClient) DeleteOneID(id int) *RoomDeleteOne {
+func (c *RoomClient) DeleteOneID(id string) *RoomDeleteOne {
 	builder := c.Delete().Where(room.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -577,17 +610,49 @@ func (c *RoomClient) Query() *RoomQuery {
 }
 
 // Get returns a Room entity by its id.
-func (c *RoomClient) Get(ctx context.Context, id int) (*Room, error) {
+func (c *RoomClient) Get(ctx context.Context, id string) (*Room, error) {
 	return c.Query().Where(room.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *RoomClient) GetX(ctx context.Context, id int) *Room {
+func (c *RoomClient) GetX(ctx context.Context, id string) *Room {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryDoors queries the doors edge of a Room.
+func (c *RoomClient) QueryDoors(r *Room) *DoorQuery {
+	query := (&DoorClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := r.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(room.Table, room.FieldID, id),
+			sqlgraph.To(door.Table, door.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, room.DoorsTable, room.DoorsColumn),
+		)
+		fromV = sqlgraph.Neighbors(r.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDoorsIn queries the doors_in edge of a Room.
+func (c *RoomClient) QueryDoorsIn(r *Room) *DoorQuery {
+	query := (&DoorClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := r.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(room.Table, room.FieldID, id),
+			sqlgraph.To(door.Table, door.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, room.DoorsInTable, room.DoorsInColumn),
+		)
+		fromV = sqlgraph.Neighbors(r.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.
@@ -618,9 +683,9 @@ func (c *RoomClient) mutate(ctx context.Context, m *RoomMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Item, Player, Room []ent.Hook
+		Door, Entity, Room []ent.Hook
 	}
 	inters struct {
-		Item, Player, Room []ent.Interceptor
+		Door, Entity, Room []ent.Interceptor
 	}
 )
