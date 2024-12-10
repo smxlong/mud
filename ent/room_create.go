@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/smxlong/mud/ent/door"
+	"github.com/smxlong/mud/ent/player"
 	"github.com/smxlong/mud/ent/room"
 )
 
@@ -82,6 +83,21 @@ func (rc *RoomCreate) AddDoorsIn(d ...*Door) *RoomCreate {
 		ids[i] = d[i].ID
 	}
 	return rc.AddDoorsInIDs(ids...)
+}
+
+// AddPlayerIDs adds the "players" edge to the Player entity by IDs.
+func (rc *RoomCreate) AddPlayerIDs(ids ...string) *RoomCreate {
+	rc.mutation.AddPlayerIDs(ids...)
+	return rc
+}
+
+// AddPlayers adds the "players" edges to the Player entity.
+func (rc *RoomCreate) AddPlayers(p ...*Player) *RoomCreate {
+	ids := make([]string, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return rc.AddPlayerIDs(ids...)
 }
 
 // Mutation returns the RoomMutation object of the builder.
@@ -203,6 +219,22 @@ func (rc *RoomCreate) createSpec() (*Room, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := rc.mutation.PlayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

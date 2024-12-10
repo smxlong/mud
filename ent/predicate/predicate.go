@@ -12,5 +12,11 @@ type Door func(*sql.Selector)
 // Entity is the predicate function for entity builders.
 type Entity func(*sql.Selector)
 
+// Player is the predicate function for player builders.
+type Player func(*sql.Selector)
+
+// PlayerRole is the predicate function for playerrole builders.
+type PlayerRole func(*sql.Selector)
+
 // Room is the predicate function for room builders.
 type Room func(*sql.Selector)

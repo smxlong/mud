@@ -10,9 +10,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/smxlong/mud/ent"
+	"github.com/smxlong/mud/ent/playerrole"
 	"github.com/smxlong/mud/gamemap"
+	"github.com/smxlong/mud/password"
 	"github.com/stretchr/testify/require"
 )
+
+const TEST_EMAIL = "test@example.com"
 
 // newEntClient returns a new ent.Client for testing.
 func newEntClient(t *testing.T) *ent.Client {
@@ -190,4 +194,68 @@ func hasNeighbor(neighbors []*gamemap.Neighbor, room *ent.Room, direction string
 		}
 	}
 	return false
+}
+
+func Test_Player_In_Room(t *testing.T) {
+	cli := newEntClient(t)
+	defer cli.Close()
+	ctx := context.Background()
+
+	// Create a room
+	room, err := cli.Room.Create().
+		SetName("test room").
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create a player
+	player, err := cli.Player.Create().
+		SetName("test player").
+		SetPassword(password.Hash("password")).
+		SetEmail(TEST_EMAIL).
+		SetRoom(room).
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Check that the player is in the room
+	players, err := room.QueryPlayers().WithRoom().All(ctx)
+	require.NoError(t, err)
+	require.Len(t, players, 1)
+	require.Equal(t, players[0].ID, player.ID)
+	require.Equal(t, players[0].Edges.Room.ID, room.ID)
+}
+
+func Test_Player_Assign_Role(t *testing.T) {
+	cli := newEntClient(t)
+	defer cli.Close()
+	ctx := context.Background()
+
+	// Create a player
+	player, err := cli.Player.Create().
+		SetName("test player").
+		SetPassword(password.Hash("password")).
+		SetEmail(TEST_EMAIL).
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Create a role
+	role, err := cli.PlayerRole.Create().
+		SetName("test role").
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Assign the role to the player
+	_, err = player.Update().
+		AddPlayerRoles(role).
+		Save(ctx)
+	require.NoError(t, err)
+
+	// Check that the player has the role
+	roles, err := player.QueryPlayerRoles().All(ctx)
+	require.NoError(t, err)
+	require.Len(t, roles, 1)
+	require.Equal(t, roles[0].ID, role.ID)
+	// use Where
+	hasRole, err := player.QueryPlayerRoles().Where(playerrole.ID(role.ID)).Exist(ctx)
+	require.NoError(t, err)
+	require.True(t, hasRole)
 }

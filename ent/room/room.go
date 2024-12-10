@@ -20,6 +20,8 @@ const (
 	EdgeDoors = "doors"
 	// EdgeDoorsIn holds the string denoting the doors_in edge name in mutations.
 	EdgeDoorsIn = "doors_in"
+	// EdgePlayers holds the string denoting the players edge name in mutations.
+	EdgePlayers = "players"
 	// Table holds the table name of the room in the database.
 	Table = "rooms"
 	// DoorsTable is the table that holds the doors relation/edge.
@@ -36,6 +38,13 @@ const (
 	DoorsInInverseTable = "doors"
 	// DoorsInColumn is the table column denoting the doors_in relation/edge.
 	DoorsInColumn = "door_to"
+	// PlayersTable is the table that holds the players relation/edge.
+	PlayersTable = "players"
+	// PlayersInverseTable is the table name for the Player entity.
+	// It exists in this package in order to avoid circular dependency with the "player" package.
+	PlayersInverseTable = "players"
+	// PlayersColumn is the table column denoting the players relation/edge.
+	PlayersColumn = "room_players"
 )
 
 // Columns holds all SQL columns for room fields.
@@ -107,6 +116,20 @@ func ByDoorsIn(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newDoorsInStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByPlayersCount orders the results by players count.
+func ByPlayersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPlayersStep(), opts...)
+	}
+}
+
+// ByPlayers orders the results by players terms.
+func ByPlayers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPlayersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newDoorsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -119,5 +142,12 @@ func newDoorsInStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DoorsInInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, DoorsInTable, DoorsInColumn),
+	)
+}
+func newPlayersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PlayersInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, PlayersTable, PlayersColumn),
 	)
 }

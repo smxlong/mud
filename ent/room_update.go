@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/smxlong/mud/ent/door"
+	"github.com/smxlong/mud/ent/player"
 	"github.com/smxlong/mud/ent/predicate"
 	"github.com/smxlong/mud/ent/room"
 )
@@ -92,6 +93,21 @@ func (ru *RoomUpdate) AddDoorsIn(d ...*Door) *RoomUpdate {
 	return ru.AddDoorsInIDs(ids...)
 }
 
+// AddPlayerIDs adds the "players" edge to the Player entity by IDs.
+func (ru *RoomUpdate) AddPlayerIDs(ids ...string) *RoomUpdate {
+	ru.mutation.AddPlayerIDs(ids...)
+	return ru
+}
+
+// AddPlayers adds the "players" edges to the Player entity.
+func (ru *RoomUpdate) AddPlayers(p ...*Player) *RoomUpdate {
+	ids := make([]string, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return ru.AddPlayerIDs(ids...)
+}
+
 // Mutation returns the RoomMutation object of the builder.
 func (ru *RoomUpdate) Mutation() *RoomMutation {
 	return ru.mutation
@@ -137,6 +153,27 @@ func (ru *RoomUpdate) RemoveDoorsIn(d ...*Door) *RoomUpdate {
 		ids[i] = d[i].ID
 	}
 	return ru.RemoveDoorsInIDs(ids...)
+}
+
+// ClearPlayers clears all "players" edges to the Player entity.
+func (ru *RoomUpdate) ClearPlayers() *RoomUpdate {
+	ru.mutation.ClearPlayers()
+	return ru
+}
+
+// RemovePlayerIDs removes the "players" edge to Player entities by IDs.
+func (ru *RoomUpdate) RemovePlayerIDs(ids ...string) *RoomUpdate {
+	ru.mutation.RemovePlayerIDs(ids...)
+	return ru
+}
+
+// RemovePlayers removes "players" edges to Player entities.
+func (ru *RoomUpdate) RemovePlayers(p ...*Player) *RoomUpdate {
+	ids := make([]string, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return ru.RemovePlayerIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -287,6 +324,51 @@ func (ru *RoomUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if ru.mutation.PlayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.RemovedPlayersIDs(); len(nodes) > 0 && !ru.mutation.PlayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ru.mutation.PlayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, ru.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{room.Label}
@@ -371,6 +453,21 @@ func (ruo *RoomUpdateOne) AddDoorsIn(d ...*Door) *RoomUpdateOne {
 	return ruo.AddDoorsInIDs(ids...)
 }
 
+// AddPlayerIDs adds the "players" edge to the Player entity by IDs.
+func (ruo *RoomUpdateOne) AddPlayerIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.AddPlayerIDs(ids...)
+	return ruo
+}
+
+// AddPlayers adds the "players" edges to the Player entity.
+func (ruo *RoomUpdateOne) AddPlayers(p ...*Player) *RoomUpdateOne {
+	ids := make([]string, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return ruo.AddPlayerIDs(ids...)
+}
+
 // Mutation returns the RoomMutation object of the builder.
 func (ruo *RoomUpdateOne) Mutation() *RoomMutation {
 	return ruo.mutation
@@ -416,6 +513,27 @@ func (ruo *RoomUpdateOne) RemoveDoorsIn(d ...*Door) *RoomUpdateOne {
 		ids[i] = d[i].ID
 	}
 	return ruo.RemoveDoorsInIDs(ids...)
+}
+
+// ClearPlayers clears all "players" edges to the Player entity.
+func (ruo *RoomUpdateOne) ClearPlayers() *RoomUpdateOne {
+	ruo.mutation.ClearPlayers()
+	return ruo
+}
+
+// RemovePlayerIDs removes the "players" edge to Player entities by IDs.
+func (ruo *RoomUpdateOne) RemovePlayerIDs(ids ...string) *RoomUpdateOne {
+	ruo.mutation.RemovePlayerIDs(ids...)
+	return ruo
+}
+
+// RemovePlayers removes "players" edges to Player entities.
+func (ruo *RoomUpdateOne) RemovePlayers(p ...*Player) *RoomUpdateOne {
+	ids := make([]string, len(p))
+	for i := range p {
+		ids[i] = p[i].ID
+	}
+	return ruo.RemovePlayerIDs(ids...)
 }
 
 // Where appends a list predicates to the RoomUpdate builder.
@@ -589,6 +707,51 @@ func (ruo *RoomUpdateOne) sqlSave(ctx context.Context) (_node *Room, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(door.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if ruo.mutation.PlayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.RemovedPlayersIDs(); len(nodes) > 0 && !ruo.mutation.PlayersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := ruo.mutation.PlayersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   room.PlayersTable,
+			Columns: []string{room.PlayersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(player.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

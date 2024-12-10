@@ -49,6 +49,40 @@ var (
 		Columns:    EntitiesColumns,
 		PrimaryKey: []*schema.Column{EntitiesColumns[0]},
 	}
+	// PlayersColumns holds the columns for the "players" table.
+	PlayersColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Unique: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "password", Type: field.TypeString},
+		{Name: "email", Type: field.TypeString, Unique: true},
+		{Name: "room_players", Type: field.TypeString, Nullable: true},
+	}
+	// PlayersTable holds the schema information for the "players" table.
+	PlayersTable = &schema.Table{
+		Name:       "players",
+		Columns:    PlayersColumns,
+		PrimaryKey: []*schema.Column{PlayersColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "players_rooms_players",
+				Columns:    []*schema.Column{PlayersColumns[5]},
+				RefColumns: []*schema.Column{RoomsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
+	// PlayerRolesColumns holds the columns for the "player_roles" table.
+	PlayerRolesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "name", Type: field.TypeString, Unique: true},
+	}
+	// PlayerRolesTable holds the schema information for the "player_roles" table.
+	PlayerRolesTable = &schema.Table{
+		Name:       "player_roles",
+		Columns:    PlayerRolesColumns,
+		PrimaryKey: []*schema.Column{PlayerRolesColumns[0]},
+	}
 	// RoomsColumns holds the columns for the "rooms" table.
 	RoomsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Unique: true},
@@ -61,15 +95,46 @@ var (
 		Columns:    RoomsColumns,
 		PrimaryKey: []*schema.Column{RoomsColumns[0]},
 	}
+	// PlayerPlayerRolesColumns holds the columns for the "player_player_roles" table.
+	PlayerPlayerRolesColumns = []*schema.Column{
+		{Name: "player_id", Type: field.TypeString},
+		{Name: "player_role_id", Type: field.TypeInt},
+	}
+	// PlayerPlayerRolesTable holds the schema information for the "player_player_roles" table.
+	PlayerPlayerRolesTable = &schema.Table{
+		Name:       "player_player_roles",
+		Columns:    PlayerPlayerRolesColumns,
+		PrimaryKey: []*schema.Column{PlayerPlayerRolesColumns[0], PlayerPlayerRolesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "player_player_roles_player_id",
+				Columns:    []*schema.Column{PlayerPlayerRolesColumns[0]},
+				RefColumns: []*schema.Column{PlayersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "player_player_roles_player_role_id",
+				Columns:    []*schema.Column{PlayerPlayerRolesColumns[1]},
+				RefColumns: []*schema.Column{PlayerRolesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		DoorsTable,
 		EntitiesTable,
+		PlayersTable,
+		PlayerRolesTable,
 		RoomsTable,
+		PlayerPlayerRolesTable,
 	}
 )
 
 func init() {
 	DoorsTable.ForeignKeys[0].RefTable = RoomsTable
 	DoorsTable.ForeignKeys[1].RefTable = RoomsTable
+	PlayersTable.ForeignKeys[0].RefTable = RoomsTable
+	PlayerPlayerRolesTable.ForeignKeys[0].RefTable = PlayersTable
+	PlayerPlayerRolesTable.ForeignKeys[1].RefTable = PlayerRolesTable
 }

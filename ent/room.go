@@ -32,9 +32,11 @@ type RoomEdges struct {
 	Doors []*Door `json:"doors,omitempty"`
 	// DoorsIn holds the value of the doors_in edge.
 	DoorsIn []*Door `json:"doors_in,omitempty"`
+	// Players holds the value of the players edge.
+	Players []*Player `json:"players,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // DoorsOrErr returns the Doors value or an error if the edge
@@ -53,6 +55,15 @@ func (e RoomEdges) DoorsInOrErr() ([]*Door, error) {
 		return e.DoorsIn, nil
 	}
 	return nil, &NotLoadedError{edge: "doors_in"}
+}
+
+// PlayersOrErr returns the Players value or an error if the edge
+// was not loaded in eager-loading.
+func (e RoomEdges) PlayersOrErr() ([]*Player, error) {
+	if e.loadedTypes[2] {
+		return e.Players, nil
+	}
+	return nil, &NotLoadedError{edge: "players"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -116,6 +127,11 @@ func (r *Room) QueryDoors() *DoorQuery {
 // QueryDoorsIn queries the "doors_in" edge of the Room entity.
 func (r *Room) QueryDoorsIn() *DoorQuery {
 	return NewRoomClient(r.config).QueryDoorsIn(r)
+}
+
+// QueryPlayers queries the "players" edge of the Room entity.
+func (r *Room) QueryPlayers() *PlayerQuery {
+	return NewRoomClient(r.config).QueryPlayers(r)
 }
 
 // Update returns a builder for updating this Room.

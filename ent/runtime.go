@@ -5,6 +5,8 @@ package ent
 import (
 	"github.com/smxlong/mud/ent/door"
 	"github.com/smxlong/mud/ent/entity"
+	"github.com/smxlong/mud/ent/player"
+	"github.com/smxlong/mud/ent/playerrole"
 	"github.com/smxlong/mud/ent/room"
 	"github.com/smxlong/mud/ent/schema"
 )
@@ -36,6 +38,29 @@ func init() {
 	entityDescID := entityFields[0].Descriptor()
 	// entity.DefaultID holds the default value on creation for the id field.
 	entity.DefaultID = entityDescID.Default.(func() string)
+	playerMixin := schema.Player{}.Mixin()
+	playerMixinFields0 := playerMixin[0].Fields()
+	_ = playerMixinFields0
+	playerFields := schema.Player{}.Fields()
+	_ = playerFields
+	// playerDescName is the schema descriptor for name field.
+	playerDescName := playerMixinFields0[1].Descriptor()
+	// player.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	player.NameValidator = playerDescName.Validators[0].(func(string) error)
+	// playerDescEmail is the schema descriptor for email field.
+	playerDescEmail := playerFields[1].Descriptor()
+	// player.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	player.EmailValidator = playerDescEmail.Validators[0].(func(string) error)
+	// playerDescID is the schema descriptor for id field.
+	playerDescID := playerMixinFields0[0].Descriptor()
+	// player.DefaultID holds the default value on creation for the id field.
+	player.DefaultID = playerDescID.Default.(func() string)
+	playerroleFields := schema.PlayerRole{}.Fields()
+	_ = playerroleFields
+	// playerroleDescName is the schema descriptor for name field.
+	playerroleDescName := playerroleFields[0].Descriptor()
+	// playerrole.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	playerrole.NameValidator = playerroleDescName.Validators[0].(func(string) error)
 	roomMixin := schema.Room{}.Mixin()
 	roomMixinFields0 := roomMixin[0].Fields()
 	_ = roomMixinFields0

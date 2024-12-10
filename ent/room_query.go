@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/smxlong/mud/ent/door"
+	"github.com/smxlong/mud/ent/player"
 	"github.com/smxlong/mud/ent/predicate"
 	"github.com/smxlong/mud/ent/room"
 )
@@ -26,6 +27,7 @@ type RoomQuery struct {
 	predicates  []predicate.Room
 	withDoors   *DoorQuery
 	withDoorsIn *DoorQuery
+	withPlayers *PlayerQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -99,6 +101,28 @@ func (rq *RoomQuery) QueryDoorsIn() *DoorQuery {
 			sqlgraph.From(room.Table, room.FieldID, selector),
 			sqlgraph.To(door.Table, door.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, room.DoorsInTable, room.DoorsInColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryPlayers chains the current query on the "players" edge.
+func (rq *RoomQuery) QueryPlayers() *PlayerQuery {
+	query := (&PlayerClient{config: rq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := rq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := rq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(room.Table, room.FieldID, selector),
+			sqlgraph.To(player.Table, player.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, room.PlayersTable, room.PlayersColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(rq.driver.Dialect(), step)
 		return fromU, nil
@@ -300,6 +324,7 @@ func (rq *RoomQuery) Clone() *RoomQuery {
 		predicates:  append([]predicate.Room{}, rq.predicates...),
 		withDoors:   rq.withDoors.Clone(),
 		withDoorsIn: rq.withDoorsIn.Clone(),
+		withPlayers: rq.withPlayers.Clone(),
 		// clone intermediate query.
 		sql:  rq.sql.Clone(),
 		path: rq.path,
@@ -325,6 +350,17 @@ func (rq *RoomQuery) WithDoorsIn(opts ...func(*DoorQuery)) *RoomQuery {
 		opt(query)
 	}
 	rq.withDoorsIn = query
+	return rq
+}
+
+// WithPlayers tells the query-builder to eager-load the nodes that are connected to
+// the "players" edge. The optional arguments are used to configure the query builder of the edge.
+func (rq *RoomQuery) WithPlayers(opts ...func(*PlayerQuery)) *RoomQuery {
+	query := (&PlayerClient{config: rq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	rq.withPlayers = query
 	return rq
 }
 
@@ -406,9 +442,10 @@ func (rq *RoomQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Room, e
 	var (
 		nodes       = []*Room{}
 		_spec       = rq.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			rq.withDoors != nil,
 			rq.withDoorsIn != nil,
+			rq.withPlayers != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -440,6 +477,13 @@ func (rq *RoomQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Room, e
 		if err := rq.loadDoorsIn(ctx, query, nodes,
 			func(n *Room) { n.Edges.DoorsIn = []*Door{} },
 			func(n *Room, e *Door) { n.Edges.DoorsIn = append(n.Edges.DoorsIn, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := rq.withPlayers; query != nil {
+		if err := rq.loadPlayers(ctx, query, nodes,
+			func(n *Room) { n.Edges.Players = []*Player{} },
+			func(n *Room, e *Player) { n.Edges.Players = append(n.Edges.Players, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -503,6 +547,37 @@ func (rq *RoomQuery) loadDoorsIn(ctx context.Context, query *DoorQuery, nodes []
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "door_to" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (rq *RoomQuery) loadPlayers(ctx context.Context, query *PlayerQuery, nodes []*Room, init func(*Room), assign func(*Room, *Player)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Room)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Player(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(room.PlayersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.room_players
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "room_players" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "room_players" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

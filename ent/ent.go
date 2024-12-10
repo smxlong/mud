@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/smxlong/mud/ent/door"
 	"github.com/smxlong/mud/ent/entity"
+	"github.com/smxlong/mud/ent/player"
+	"github.com/smxlong/mud/ent/playerrole"
 	"github.com/smxlong/mud/ent/room"
 )
 
@@ -75,9 +77,11 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			door.Table:   door.ValidColumn,
-			entity.Table: entity.ValidColumn,
-			room.Table:   room.ValidColumn,
+			door.Table:       door.ValidColumn,
+			entity.Table:     entity.ValidColumn,
+			player.Table:     player.ValidColumn,
+			playerrole.Table: playerrole.ValidColumn,
+			room.Table:       room.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

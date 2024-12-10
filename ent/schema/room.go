@@ -22,6 +22,7 @@ func (Room) Edges() []ent.Edge {
 			Ref("from"),
 		edge.From("doors_in", Door.Type).
 			Ref("to"),
+		edge.To("players", Player.Type),
 	}
 }
 

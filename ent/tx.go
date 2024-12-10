@@ -16,6 +16,10 @@ type Tx struct {
 	Door *DoorClient
 	// Entity is the client for interacting with the Entity builders.
 	Entity *EntityClient
+	// Player is the client for interacting with the Player builders.
+	Player *PlayerClient
+	// PlayerRole is the client for interacting with the PlayerRole builders.
+	PlayerRole *PlayerRoleClient
 	// Room is the client for interacting with the Room builders.
 	Room *RoomClient
 
@@ -151,6 +155,8 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.Door = NewDoorClient(tx.config)
 	tx.Entity = NewEntityClient(tx.config)
+	tx.Player = NewPlayerClient(tx.config)
+	tx.PlayerRole = NewPlayerRoleClient(tx.config)
 	tx.Room = NewRoomClient(tx.config)
 }
 

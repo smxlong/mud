@@ -259,6 +259,29 @@ func HasDoorsInWith(preds ...predicate.Door) predicate.Room {
 	})
 }
 
+// HasPlayers applies the HasEdge predicate on the "players" edge.
+func HasPlayers() predicate.Room {
+	return predicate.Room(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, PlayersTable, PlayersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPlayersWith applies the HasEdge predicate on the "players" edge with a given conditions (other predicates).
+func HasPlayersWith(preds ...predicate.Player) predicate.Room {
+	return predicate.Room(func(s *sql.Selector) {
+		step := newPlayersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.Room) predicate.Room {
 	return predicate.Room(sql.AndPredicates(predicates...))
